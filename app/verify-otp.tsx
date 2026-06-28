@@ -13,12 +13,7 @@ import {
 } from 'react-native';
 
 // SMS auto-read via Android SMS Retriever API.
-// Guarded with require() + try/catch (not a static import) because the
-// native module load failure happens at import-evaluation time, which only
-// require() inside try/catch can intercept. See README "Known issues" —
-// this native module does not currently register correctly under React
-// Native's New Architecture in this build, so this falls back gracefully
-// to manual OTP entry rather than crashing the screen.
+// Guarded with require() + try/catch — see README "Known issues".
 let useOtpAutoFill: any = () => ({ otp: null, message: null, clear: () => {} });
 try {
   useOtpAutoFill = require('expo-otp-autofill').useOtpAutoFill;
@@ -39,13 +34,11 @@ export default function VerifyOtpScreen() {
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
 
   const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
-
   const { otp: autoFilledOtp, clear: clearAutoFill } = useOtpAutoFill();
 
   useEffect(() => {
     if (autoFilledOtp && autoFilledOtp.length === 4) {
-      const digits = autoFilledOtp.split('');
-      setOtp(digits);
+      setOtp(autoFilledOtp.split(''));
       clearAutoFill();
     }
   }, [autoFilledOtp]);
@@ -58,9 +51,7 @@ export default function VerifyOtpScreen() {
 
   useEffect(() => {
     const code = otp.join('');
-    if (code.length === 4) {
-      handleVerify(code);
-    }
+    if (code.length === 4) handleVerify(code);
   }, [otp]);
 
   const handleChange = (text, index) => {
@@ -68,25 +59,20 @@ export default function VerifyOtpScreen() {
     const newOtp = [...otp];
 
     if (digit.length > 1) {
-      // Handles paste of full code
       const chars = digit.slice(0, 4).split('');
       chars.forEach((c, i) => {
         if (newOtp[i] !== undefined) newOtp[i] = c;
       });
       setOtp(newOtp);
       const nextEmpty = newOtp.findIndex((d) => d === '');
-      const focusIndex = nextEmpty === -1 ? 3 : nextEmpty;
-      inputRefs[focusIndex].current?.focus();
+      inputRefs[nextEmpty === -1 ? 3 : nextEmpty].current?.focus();
       return;
     }
 
     newOtp[index] = digit;
     setOtp(newOtp);
     setError('');
-
-    if (digit && index < 3) {
-      inputRefs[index + 1].current?.focus();
-    }
+    if (digit && index < 3) inputRefs[index + 1].current?.focus();
   };
 
   const handleKeyPress = (e, index) => {
@@ -100,9 +86,6 @@ export default function VerifyOtpScreen() {
     setLoading(true);
     try {
       await verifyOtp(mobile, code);
-      // Verification successful — navigate to a success state.
-      // No "logged in" screen was specified in the assignment scope,
-      // so we replace back to the start with a success flag for now.
       router.replace({ pathname: '/', params: { verified: '1' } });
     } catch (err) {
       setError(err.message || 'Invalid OTP. Please try again.');
@@ -134,11 +117,15 @@ export default function VerifyOtpScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backChevron}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Phone Verification</Text>
+      </View>
+
       <View style={styles.content}>
-        <Text style={styles.title}>Verify OTP</Text>
-        <Text style={styles.subtitle}>
-          Enter the 4-digit code sent to +91 {mobile}
-        </Text>
+        <Text style={styles.instruction}>Enter 4 digit OTP sent to your phone number</Text>
 
         <View style={styles.otpRow}>
           {otp.map((digit, index) => (
@@ -160,7 +147,7 @@ export default function VerifyOtpScreen() {
 
         {loading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#2962ff" />
+            <ActivityIndicator color="#2F80ED" />
             <Text style={styles.loadingText}>Verifying...</Text>
           </View>
         )}
@@ -171,16 +158,8 @@ export default function VerifyOtpScreen() {
           style={styles.resendWrapper}
         >
           <Text style={[styles.resendText, cooldown > 0 && styles.resendTextDisabled]}>
-            {resending
-              ? 'Resending...'
-              : cooldown > 0
-              ? `Resend OTP in ${cooldown}s`
-              : 'Resend OTP'}
+            {resending ? 'Resending...' : cooldown > 0 ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.back()} style={styles.changeNumberWrapper}>
-          <Text style={styles.changeNumberText}>Change number</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -188,28 +167,43 @@ export default function VerifyOtpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 32 },
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  otpBox: {
-    width: 60,
-    height: 60,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#111',
+  container: { flex: 1, backgroundColor: '#141414' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 16,
   },
-  otpBoxError: { borderColor: '#e53935' },
-  errorText: { color: '#e53935', marginTop: 14, fontSize: 13 },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2C2C2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backChevron: { color: '#fff', fontSize: 20, marginTop: -2 },
+  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  content: { paddingHorizontal: 24, paddingTop: 8 },
+  instruction: { fontSize: 17, fontWeight: '500', color: '#fff', marginBottom: 24, lineHeight: 24 },
+  otpRow: { flexDirection: 'row', gap: 14 },
+  otpBox: {
+    width: 56,
+    height: 56,
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+    borderRadius: 10,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  otpBoxError: { borderColor: '#FF453A' },
+  errorText: { color: '#FF453A', marginTop: 14, fontSize: 13 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 8 },
-  loadingText: { color: '#2962ff', fontSize: 13 },
-  resendWrapper: { marginTop: 28, alignSelf: 'center' },
-  resendText: { color: '#2962ff', fontSize: 14, fontWeight: '600' },
-  resendTextDisabled: { color: '#999' },
-  changeNumberWrapper: { marginTop: 16, alignSelf: 'center' },
-  changeNumberText: { color: '#666', fontSize: 13, textDecorationLine: 'underline' },
+  loadingText: { color: '#2F80ED', fontSize: 13 },
+  resendWrapper: { marginTop: 24, alignSelf: 'flex-start' },
+  resendText: { color: '#2F80ED', fontSize: 14, fontWeight: '600' },
+  resendTextDisabled: { color: '#6B6B70' },
 });
