@@ -70,7 +70,7 @@ This was implemented using the `expo-otp-autofill` package, but ultimately had t
 ## 📦 Deliverables
 
 - ✅ GitHub repo (this one)
-- ✅ Working APK — [download link](#)
+- ✅ Working APK — [download link](https://github.com/Amankrydv/stapubox-otp-assignment/releases/download/v1.0.0/application-f417b18d-6d19-4281-aa3f-4397a8ae9c2b.apk)
 - ✅ Demo video — [link](#)
 
 ## 🎥 Demo
