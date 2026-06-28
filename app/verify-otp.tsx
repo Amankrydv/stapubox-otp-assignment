@@ -1,5 +1,4 @@
 import { resendOtp, verifyOtp } from '@/services/api';
-import { useOtpAutoFill } from 'expo-otp-autofill';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -12,6 +11,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+// SMS auto-read via Android SMS Retriever API.
+// Guarded with require() + try/catch (not a static import) because the
+// native module load failure happens at import-evaluation time, which only
+// require() inside try/catch can intercept. See README "Known issues" —
+// this native module does not currently register correctly under React
+// Native's New Architecture in this build, so this falls back gracefully
+// to manual OTP entry rather than crashing the screen.
+let useOtpAutoFill: any = () => ({ otp: null, message: null, clear: () => {} });
+try {
+  useOtpAutoFill = require('expo-otp-autofill').useOtpAutoFill;
+} catch (e) {
+  console.warn('SMS auto-read unavailable, falling back to manual entry:', (e as Error)?.message);
+}
 
 const RESEND_COOLDOWN = 60;
 
@@ -26,20 +39,8 @@ export default function VerifyOtpScreen() {
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
 
   const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
-  // SMS auto-read via Android SMS Retriever API.
-  // Note: as of this build, the `expo-otp-autofill` native module does not
-  // register correctly under React Native's New Architecture (see README
-  // "Known issues" for details). Wrapped defensively so a native-module
-  // failure falls back gracefully to manual entry rather than crashing.
-  let autoFilledOtp = null;
-  let clearAutoFill = () => {};
-  try {
-    const otpAutoFill = useOtpAutoFill();
-    autoFilledOtp = otpAutoFill.otp;
-    clearAutoFill = otpAutoFill.clear;
-  } catch (e) {
-    console.warn('SMS auto-read unavailable, falling back to manual entry:', e?.message);
-  }
+
+  const { otp: autoFilledOtp, clear: clearAutoFill } = useOtpAutoFill();
 
   useEffect(() => {
     if (autoFilledOtp && autoFilledOtp.length === 4) {
